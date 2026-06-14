@@ -1044,8 +1044,10 @@
           ${t.type==='entrada'?'+':'-'}${fmt(t.amount)}
         </td>
         <td><div class="actions">
-          <button class="btn-sm btn-ghost" onclick="editFinTransaction(${t.id})">✏️</button>
-          <button class="btn-sm btn-danger" onclick="deleteFinTransaction(${t.id})">🗑️</button>
+          ${t.source === 'project_payment'
+            ? `<span class="badge badge-blue" style="font-size:10px">Auto 🔗</span>`
+            : `<button class="btn-sm btn-ghost" onclick="editFinTransaction(${t.id})">✏️</button>
+               <button class="btn-sm btn-danger" onclick="deleteFinTransaction(${t.id})">🗑️</button>`}
         </div></td>
       </tr>`;
     }).join('');

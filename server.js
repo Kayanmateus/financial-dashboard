@@ -105,9 +105,13 @@ async function initDB() {
       category TEXT NOT NULL,
       description TEXT DEFAULT '',
       date TEXT NOT NULL,
+      source TEXT DEFAULT 'manual',
+      "sourceId" INTEGER,
       "createdAt" TEXT DEFAULT to_char(NOW(),'YYYY-MM-DD HH24:MI:SS')
     )
   `);
+  await q(`ALTER TABLE fin_transactions ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'`);
+  await q(`ALTER TABLE fin_transactions ADD COLUMN IF NOT EXISTS "sourceId" INTEGER`);
 
   // Inserir categorias padrão se não existirem
   const { rows: cats } = await q(`SELECT COUNT(*) as c FROM fin_categories`);
@@ -254,12 +258,25 @@ app.delete('/api/projects/:id', async (req, res) => {
 app.post('/api/projects/:id/payments', async (req, res) => {
   try {
     const { amount, paymentDate, method, notes } = req.body;
+
+    // Busca o projeto para usar o título na descrição
+    const { rows: [proj] } = await q(`SELECT title FROM projects WHERE id = $1`, [req.params.id]);
+
     const { rows } = await q(
       `INSERT INTO payments ("projectId", amount, "paymentDate", method, notes) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
       [req.params.id, amount, paymentDate, method || '', notes || '']
     );
+    const paymentId = rows[0].id;
+
+    // Sincroniza automaticamente nas Finanças Pessoais como CNPJ / Empresa
+    await q(
+      `INSERT INTO fin_transactions (type, amount, category, description, date, source, "sourceId")
+       VALUES ('entrada', $1, 'CNPJ / Empresa', $2, $3, 'project_payment', $4)`,
+      [amount, `Recebimento: ${proj?.title || 'Projeto'}`, paymentDate, paymentId]
+    );
+
     await recalcPaymentStatus(req.params.id);
-    res.status(201).json({ id: rows[0].id, message: 'Pagamento registrado' });
+    res.status(201).json({ id: paymentId, message: 'Pagamento registrado' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -269,6 +286,8 @@ app.delete('/api/payments/:id', async (req, res) => {
     const { rows } = await q(`SELECT "projectId" FROM payments WHERE id = $1`, [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Pagamento não encontrado' });
     await q(`DELETE FROM payments WHERE id = $1`, [req.params.id]);
+    // Remove também da entrada financeira vinculada
+    await q(`DELETE FROM fin_transactions WHERE source = 'project_payment' AND "sourceId" = $1`, [req.params.id]);
     await recalcPaymentStatus(rows[0].projectId);
     res.json({ message: 'Pagamento excluído' });
   } catch (e) { res.status(500).json({ error: e.message }); }
