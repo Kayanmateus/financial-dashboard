@@ -191,8 +191,18 @@
       }
       #sidebar.open { transform: translateX(0); }
       .mobile-menu-btn { display: flex; }
-      #main { padding-top: 70px; }
+      #main { padding: 70px 12px 20px; }
       .form-row, .form-row-3 { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-card { padding: 14px; }
+      .stat-value { font-size: 19px; }
+      .card { overflow-x: auto; }
+      .card table { min-width: 640px; }
+      .rep-table { min-width: 600px; }
+      .rep-section { overflow-x: auto; }
+      .fin-grid { grid-template-columns: 1fr; }
+      .modal { padding: 18px; }
+      h1 { font-size: 19px; }
     }
 
     @media print {
