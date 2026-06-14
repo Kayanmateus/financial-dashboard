@@ -383,6 +383,78 @@ app.get('/api/financial-report', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
+// RELATÓRIOS
+// ══════════════════════════════════════════════════════════════
+
+app.get('/api/reports/full', async (req, res) => {
+  try {
+    const { dateFrom, dateTo, type, status, paymentStatus, projectId } = req.query;
+
+    let where = 'WHERE 1=1';
+    const vals = [];
+    let i = 1;
+    if (dateFrom)      { where += ` AND "dueDate" >= $${i++}`; vals.push(dateFrom); }
+    if (dateTo)        { where += ` AND "dueDate" <= $${i++}`; vals.push(dateTo); }
+    if (type)          { where += ` AND type = $${i++}`;        vals.push(type); }
+    if (status)        { where += ` AND status = $${i++}`;      vals.push(status); }
+    if (paymentStatus) { where += ` AND "paymentStatus" = $${i++}`; vals.push(paymentStatus); }
+    if (projectId)     { where += ` AND id = $${i++}`;          vals.push(projectId); }
+
+    const { rows: projects } = await q(`SELECT * FROM projects ${where} ORDER BY "dueDate" ASC`, vals);
+    const ids = projects.map(p => p.id);
+
+    let payments = [], events = [], milestones = [];
+    if (ids.length) {
+      const ph = ids.map((_,j) => `$${j+1}`).join(',');
+      const { rows: pay } = await q(`SELECT * FROM payments WHERE "projectId" IN (${ph}) ORDER BY "paymentDate" DESC`, ids);
+      const { rows: ev  } = await q(`SELECT * FROM events   WHERE "projectId" IN (${ph}) ORDER BY "eventDate" ASC`,   ids);
+      const { rows: ms  } = await q(`SELECT * FROM milestones WHERE "projectId" IN (${ph})`, ids);
+      payments = pay; events = ev; milestones = ms;
+    }
+
+    // Stats
+    const totalValue    = projects.reduce((s,p) => s + p.value, 0);
+    const totalReceived = payments.reduce((s,p) => s + p.amount, 0);
+    const byType  = {};
+    const byStatus = {};
+    const byPayment = {};
+    projects.forEach(p => {
+      byType[p.type]             = (byType[p.type]             || {count:0,value:0,received:0});
+      byStatus[p.status]         = (byStatus[p.status]         || 0) + 1;
+      byPayment[p.paymentStatus] = (byPayment[p.paymentStatus] || 0) + 1;
+      byType[p.type].count++;
+      byType[p.type].value += p.value;
+      byType[p.type].received += payments.filter(x => x.projectId === p.id).reduce((s,x) => s + x.amount, 0);
+    });
+
+    res.json({ projects, payments, events, milestones, totalValue, totalReceived, byType, byStatus, byPayment });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/reports/personal', async (req, res) => {
+  try {
+    const { dateFrom, dateTo, type, category } = req.query;
+    let where = 'WHERE 1=1';
+    const vals = [];
+    let i = 1;
+    if (dateFrom) { where += ` AND date >= $${i++}`; vals.push(dateFrom); }
+    if (dateTo)   { where += ` AND date <= $${i++}`; vals.push(dateTo); }
+    if (type)     { where += ` AND type = $${i++}`;  vals.push(type); }
+    if (category) { where += ` AND category = $${i++}`; vals.push(category); }
+
+    const { rows: transactions } = await q(`SELECT * FROM fin_transactions ${where} ORDER BY date DESC`, vals);
+    const totalEntradas = transactions.filter(t => t.type==='entrada').reduce((s,t)=>s+t.amount,0);
+    const totalSaidas   = transactions.filter(t => t.type==='saida').reduce((s,t)=>s+t.amount,0);
+    const byCat = {};
+    transactions.filter(t => t.type==='saida').forEach(t => {
+      byCat[t.category] = (byCat[t.category]||0) + t.amount;
+    });
+
+    res.json({ transactions, totalEntradas, totalSaidas, saldo: totalEntradas-totalSaidas, byCat });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════
 // FINANÇAS PESSOAIS
 // ══════════════════════════════════════════════════════════════
 

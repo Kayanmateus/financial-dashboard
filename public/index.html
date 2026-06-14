@@ -143,6 +143,37 @@
     .filter-bar select, .filter-bar input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; }
     .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
 
+    /* REPORT TABS */
+    .rep-tab { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; font-size: 13px; transition: all .2s; }
+    .rep-tab:hover { border-color: var(--primary); color: var(--text); }
+    .rep-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    /* REPORT OUTPUT */
+    .rep-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .rep-section h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+    .rep-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .rep-kpi { background: var(--surface2); border-radius: 10px; padding: 14px; }
+    .rep-kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+    .rep-kpi-value { font-size: 20px; font-weight: 700; }
+    .rep-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .rep-table th { padding: 8px 12px; text-align: left; background: var(--surface2); color: var(--text-muted); font-weight: 500; }
+    .rep-table td { padding: 9px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+    .rep-table tr:hover td { background: rgba(124,58,237,.05); }
+
+    @media print {
+      #sidebar, .filter-bar, .rep-tab, button, .modal-overlay, #bible-verse-box { display: none !important; }
+      #main { padding: 0 !important; overflow: visible !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .rep-section { border: 1px solid #ddd !important; background: #fff !important; break-inside: avoid; }
+      .rep-kpi { background: #f5f5f5 !important; }
+      .rep-table th { background: #f0f0f0 !important; color: #333 !important; }
+      .rep-table td { color: #000 !important; }
+      .stat-value, .rep-kpi-value { color: #000 !important; }
+      .badge { border: 1px solid #999 !important; }
+      .page { display: block !important; }
+      #page-reports { display: block !important; }
+    }
+
     @media (max-width: 640px) {
       #sidebar { display: none; }
       .form-row, .form-row-3 { grid-template-columns: 1fr; }
@@ -159,6 +190,12 @@
   <div class="nav-item" data-page="agenda" onclick="showPage('agenda')"><span class="icon">📅</span> Agenda</div>
   <div class="nav-item" data-page="financial" onclick="showPage('financial')"><span class="icon">💹</span> Financeiro</div>
   <div class="nav-item" data-page="personal" onclick="showPage('personal')"><span class="icon">💵</span> Finanças Pessoais</div>
+  <div class="nav-item" data-page="reports" onclick="showPage('reports')"><span class="icon">📄</span> Relatórios</div>
+  <div id="bible-verse-box" style="margin:16px 12px 0;padding:12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:10px;font-size:11px;line-height:1.6;color:var(--text-muted)">
+    <div style="font-size:10px;color:var(--primary-light);font-weight:600;margin-bottom:6px">✝️ VERSÍCULO DO DIA</div>
+    <div id="bible-text" style="font-style:italic">Carregando...</div>
+    <div id="bible-ref"  style="margin-top:5px;color:var(--primary-light);font-size:10px;font-weight:600"></div>
+  </div>
   <div class="sidebar-footer">
     <button class="btn-new" onclick="openNewProject()">➕ Novo Projeto</button>
   </div>
@@ -233,6 +270,85 @@
       <div class="card-header">Eventos e Prazos</div>
       <div style="padding:16px" id="agenda-list"></div>
     </div>
+  </div>
+
+  <!-- RELATÓRIOS -->
+  <div id="page-reports" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <h1>📄 Relatórios</h1>
+        <p class="subtitle">Análise completa e conferência de todos os dados</p>
+      </div>
+      <button onclick="printReport()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:600">🖨️ Imprimir / PDF</button>
+    </div>
+
+    <!-- Tipo de relatório -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
+      <button class="rep-tab active" onclick="setRepTab('geral')"       >📊 Geral de Projetos</button>
+      <button class="rep-tab"        onclick="setRepTab('projeto')"      >📋 Projeto Específico</button>
+      <button class="rep-tab"        onclick="setRepTab('financeiro')"   >💰 Financeiro Projetos</button>
+      <button class="rep-tab"        onclick="setRepTab('pessoal')"      >💵 Finanças Pessoais</button>
+      <button class="rep-tab"        onclick="setRepTab('fiscal')"       >🧾 Fiscal / Impostos</button>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">🔍 Filtros</div>
+      <div style="padding:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+        <div class="field" style="min-width:140px"><label>Data início</label><input type="date" id="r-from" /></div>
+        <div class="field" style="min-width:140px"><label>Data fim</label><input type="date" id="r-to" /></div>
+        <div class="field" id="r-type-wrap" style="min-width:180px"><label>Tipo de Trabalho</label>
+          <select id="r-type">
+            <option value="">Todos</option>
+            <option>TCC</option><option>Artigo Científico</option><option>Atividade de Extensão</option>
+            <option>Projeto Multidisciplinar</option><option>Projeto Transdisciplinar</option>
+            <option>Atividades Complementares</option><option>Eixo Temático</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="field" id="r-status-wrap" style="min-width:160px"><label>Status</label>
+          <select id="r-status">
+            <option value="">Todos</option>
+            <option value="em_andamento">Em Andamento</option>
+            <option value="concluido">Concluído</option>
+            <option value="arquivado">Arquivado</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+        <div class="field" id="r-pay-wrap" style="min-width:160px"><label>Pagamento</label>
+          <select id="r-pay">
+            <option value="">Todos</option>
+            <option value="nao_pago">Não Pago</option>
+            <option value="parcialmente_pago">Parcial</option>
+            <option value="totalmente_pago">Pago</option>
+          </select>
+        </div>
+        <div class="field" id="r-proj-wrap" style="min-width:200px"><label>Projeto Específico</label>
+          <select id="r-project"><option value="">Selecione...</option></select>
+        </div>
+        <div class="field" id="r-fin-type-wrap" style="min-width:160px"><label>Tipo (Pessoal)</label>
+          <select id="r-fin-type">
+            <option value="">Entradas e Saídas</option>
+            <option value="entrada">Só Entradas</option>
+            <option value="saida">Só Saídas</option>
+          </select>
+        </div>
+        <div class="field" id="r-fin-cat-wrap" style="min-width:180px"><label>Categoria (Pessoal)</label>
+          <select id="r-fin-cat"><option value="">Todas</option></select>
+        </div>
+        <div class="field" id="r-tax-wrap" style="min-width:180px"><label>Regime Tributário</label>
+          <select id="r-tax-regime">
+            <option value="mei">MEI (DAS fixo)</option>
+            <option value="simples6">Simples Nacional 6%</option>
+            <option value="simples15">Simples Nacional 15,5%</option>
+            <option value="lucro">Lucro Presumido ~13%</option>
+          </select>
+        </div>
+        <button onclick="loadReport()" style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-size:13px;font-weight:600;align-self:flex-end">Gerar Relatório</button>
+      </div>
+    </div>
+
+    <!-- Resultado -->
+    <div id="report-output"></div>
   </div>
 
   <!-- FINANÇAS PESSOAIS -->
@@ -450,6 +566,7 @@
     if (name === 'agenda') loadAgenda();
     if (name === 'financial') loadFinancial();
     if (name === 'personal') loadPersonal();
+    if (name === 'reports')  initReportPage();
   }
 
   // ── MODALS ───────────────────────────────────────────────────
@@ -875,6 +992,386 @@
 
   // ── DELETE ROUTES (need to add in server) ────────────────────
   // ══════════════════════════════════════════════════════════════
+  // VERSÍCULO DO DIA
+  // ══════════════════════════════════════════════════════════════
+  const VERSES = [
+    { t: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.', r: 'João 3:16' },
+    { t: 'O Senhor é o meu pastor; nada me faltará.', r: 'Salmos 23:1' },
+    { t: 'Tudo posso naquele que me fortalece.', r: 'Filipenses 4:13' },
+    { t: 'Confie no Senhor de todo o seu coração e não se apoie em seu próprio entendimento.', r: 'Provérbios 3:5' },
+    { t: 'Porque eu sei os planos que tenho para você, diz o Senhor, planos de prosperar e não de prejudicar você, planos de dar a você esperança e um futuro.', r: 'Jeremias 29:11' },
+    { t: 'Seja forte e corajoso! Não se apavore nem desanime, pois o Senhor, o seu Deus, estará com você por onde você andar.', r: 'Josué 1:9' },
+    { t: 'Busquem, pois, em primeiro lugar o Reino de Deus e a sua justiça, e todas estas coisas lhes serão acrescentadas.', r: 'Mateus 6:33' },
+    { t: 'O Senhor é a minha luz e a minha salvação; a quem temerei?', r: 'Salmos 27:1' },
+    { t: 'Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.', r: 'Salmos 37:5' },
+    { t: 'Não anseie por nada, mas em tudo, pela oração e súplicas, e com ação de graças, apresente seus pedidos a Deus.', r: 'Filipenses 4:6' },
+    { t: 'Deleita-te também no Senhor, e ele te concederá o que deseja o teu coração.', r: 'Salmos 37:4' },
+    { t: 'Porque sou eu que conheço os planos que tenho para vós, diz o Senhor.', r: 'Jeremias 29:11' },
+    { t: 'O amor é paciente, o amor é bondoso. Não inveja, não se vangloria, não se orgulha.', r: '1 Coríntios 13:4' },
+    { t: 'A fé é a certeza daquilo que esperamos e a prova das coisas que não vemos.', r: 'Hebreus 11:1' },
+    { t: 'Porque nada é impossível para Deus.', r: 'Lucas 1:37' },
+    { t: 'Aquele que habita no esconderijo do Altíssimo, à sombra do Onipotente descansará.', r: 'Salmos 91:1' },
+    { t: 'Não vos conformeis com este século, mas transformai-vos pela renovação do vosso entendimento.', r: 'Romanos 12:2' },
+    { t: 'E conhecereis a verdade, e a verdade vos libertará.', r: 'João 8:32' },
+    { t: 'Vinde a mim, todos os que estais cansados e sobrecarregados, e eu vos aliviarei.', r: 'Mateus 11:28' },
+    { t: 'O Senhor abençoe você e te guarde; o Senhor faça resplandecer o seu rosto sobre você.', r: 'Números 6:24-25' },
+    { t: 'Tende coragem; eu venci o mundo.', r: 'João 16:33' },
+    { t: 'Mas os que esperam no Senhor renovarão as suas forças. Voarão alto como águias.', r: 'Isaías 40:31' },
+    { t: 'Posso fazer tudo por meio daquele que me dá forças.', r: 'Filipenses 4:13' },
+    { t: 'O Senhor te guardará de todo o mal; ele guardará a tua alma.', r: 'Salmos 121:7' },
+    { t: 'Alegrai-vos sempre no Senhor. Outra vez digo: Alegrai-vos.', r: 'Filipenses 4:4' },
+    { t: 'Honra ao Senhor com os teus bens e com as primícias de toda a tua renda.', r: 'Provérbios 3:9' },
+    { t: 'O início da sabedoria é o temor do Senhor.', r: 'Provérbios 9:10' },
+    { t: 'Não temas, porque eu sou contigo; não te assombres, porque eu sou teu Deus.', r: 'Isaías 41:10' },
+    { t: 'Eu vim para que tenham vida e a tenham em abundância.', r: 'João 10:10' },
+    { t: 'O Senhor é bom e reto; por isso instrui os pecadores no caminho.', r: 'Salmos 25:8' },
+    { t: 'Melhor é o pouco com justiça, do que a abundância de rendas com injustiça.', r: 'Provérbios 16:8' },
+    { t: 'Porque onde estiver o teu tesouro, aí estará também o teu coração.', r: 'Mateus 6:21' },
+    { t: 'O rico e o pobre se encontram; o Senhor os fez a ambos.', r: 'Provérbios 22:2' },
+    { t: 'Riquezas e honra vêm de ti, e tu dominas sobre tudo.', r: '1 Crônicas 29:12' },
+    { t: 'E o meu Deus suprirá todas as vossas necessidades segundo as suas riquezas em glória.', r: 'Filipenses 4:19' },
+    { t: 'Guarda-te de toda avareza, porque a vida de um homem não consiste na abundância dos bens que possui.', r: 'Lucas 12:15' },
+    { t: 'Dar é mais bem-aventurado do que receber.', r: 'Atos 20:35' },
+    { t: 'Cada um dê conforme propôs no seu coração, não com tristeza ou por necessidade, porque Deus ama quem dá com alegria.', r: '2 Coríntios 9:7' },
+    { t: 'O trabalho do justo é para a vida; o fruto do ímpio, para o pecado.', r: 'Provérbios 10:16' },
+    { t: 'Todo o que trabalha, trabalha para si mesmo, pois a sua boca o exorta.', r: 'Provérbios 16:26' },
+    { t: 'Porque Deus não nos deu espírito de covardia, mas de poder, de amor e de equilíbrio.', r: '2 Timóteo 1:7' },
+    { t: 'Antes de tudo, guarda o teu coração, porque dele procedem as fontes da vida.', r: 'Provérbios 4:23' },
+    { t: 'O coração alegre é como bom remédio.', r: 'Provérbios 17:22' },
+    { t: 'No trabalho de cada homem está o seu galardão.', r: 'Provérbios 12:14' },
+    { t: 'Os planos do diligente certamente tendem para a abundância, mas todo aquele que se apressa ficará na penúria.', r: 'Provérbios 21:5' },
+    { t: 'A bênção do Senhor enriquece, e nenhum esforço humano pode substituí-la.', r: 'Provérbios 10:22' },
+    { t: 'Seja feita a tua vontade assim na terra como no céu.', r: 'Mateus 6:10' },
+    { t: 'Tudo tem o seu tempo determinado, há tempo para todo propósito debaixo do céu.', r: 'Eclesiastes 3:1' },
+    { t: 'A misericórdia do Senhor dura para sempre.', r: 'Salmos 136:1' },
+    { t: 'O Senhor é minha força e meu escudo; nele o meu coração confia.', r: 'Salmos 28:7' },
+    { t: 'Louvai ao Senhor porque ele é bom, porque a sua misericórdia dura para sempre.', r: 'Salmos 107:1' },
+    { t: 'Sede fortes e corajosos, não temais, nem vos aterrorizeis diante deles, porque o Senhor teu Deus é quem vai contigo.', r: 'Deuteronômio 31:6' },
+  ];
+
+  function loadBibleVerse() {
+    const day = Math.floor(Date.now() / 86400000);
+    const v = VERSES[day % VERSES.length];
+    document.getElementById('bible-text').textContent = `"${v.t}"`;
+    document.getElementById('bible-ref').textContent  = `— ${v.r}`;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // RELATÓRIOS
+  // ══════════════════════════════════════════════════════════════
+  let currentRepTab = 'geral';
+  let repAllProjects = [];
+
+  function setRepTab(tab) {
+    currentRepTab = tab;
+    document.querySelectorAll('.rep-tab').forEach((b,i) => b.classList.toggle('active', i === ['geral','projeto','financeiro','pessoal','fiscal'].indexOf(tab)));
+    // Mostra/oculta filtros relevantes
+    const show = (id, visible) => { const el = document.getElementById(id); if(el) el.style.display = visible ? '' : 'none'; };
+    show('r-type-wrap',     ['geral','financeiro','fiscal'].includes(tab));
+    show('r-status-wrap',   ['geral','projeto'].includes(tab));
+    show('r-pay-wrap',      ['geral','financeiro'].includes(tab));
+    show('r-proj-wrap',     tab === 'projeto');
+    show('r-fin-type-wrap', ['pessoal','fiscal'].includes(tab));
+    show('r-fin-cat-wrap',  tab === 'pessoal');
+    show('r-tax-wrap',      tab === 'fiscal');
+    document.getElementById('report-output').innerHTML = '';
+  }
+
+  async function initReportPage() {
+    const dash = await fetch('/api/dashboard').then(r => r.json());
+    repAllProjects = dash.projects;
+    const sel = document.getElementById('r-project');
+    sel.innerHTML = '<option value="">Selecione...</option>' + dash.projects.map(p => `<option value="${p.id}">${p.title} — ${p.studentName}</option>`).join('');
+    const cats = await fetch('/api/fin/categories').then(r => r.json());
+    const catSel = document.getElementById('r-fin-cat');
+    catSel.innerHTML = '<option value="">Todas</option>' + cats.filter(c=>c.type==='saida').map(c=>`<option>${c.name}</option>`).join('');
+    setRepTab('geral');
+  }
+
+  async function loadReport() {
+    const from = document.getElementById('r-from').value;
+    const to   = document.getElementById('r-to').value;
+    const out  = document.getElementById('report-output');
+    out.innerHTML = '<div style="padding:30px;text-align:center;color:var(--text-muted)">⏳ Gerando relatório...</div>';
+
+    if (currentRepTab === 'geral' || currentRepTab === 'financeiro') {
+      const p = new URLSearchParams();
+      if (from) p.set('dateFrom', from);
+      if (to)   p.set('dateTo', to);
+      const type = document.getElementById('r-type').value;
+      const status = document.getElementById('r-status')?.value || '';
+      const pay    = document.getElementById('r-pay')?.value || '';
+      if (type)   p.set('type', type);
+      if (status) p.set('status', status);
+      if (pay)    p.set('paymentStatus', pay);
+      const d = await fetch('/api/reports/full?' + p).then(r => r.json());
+      currentRepTab === 'geral' ? renderGeralReport(d, from, to) : renderFinanceiroReport(d, from, to);
+
+    } else if (currentRepTab === 'projeto') {
+      const pid = document.getElementById('r-project').value;
+      if (!pid) { out.innerHTML = '<div class="empty">Selecione um projeto</div>'; return; }
+      const d = await fetch(`/api/projects/${pid}`).then(r => r.json());
+      renderProjetoReport(d);
+
+    } else if (currentRepTab === 'pessoal' || currentRepTab === 'fiscal') {
+      const p = new URLSearchParams();
+      if (from) p.set('dateFrom', from);
+      if (to)   p.set('dateTo', to);
+      const ft = document.getElementById('r-fin-type').value;
+      const fc = document.getElementById('r-fin-cat').value;
+      if (ft) p.set('type', ft);
+      if (fc) p.set('category', fc);
+      const d = await fetch('/api/reports/personal?' + p).then(r => r.json());
+      const projD = await fetch('/api/reports/full?' + (from?`dateFrom=${from}`:'') + (to?`&dateTo=${to}`:'')).then(r => r.json());
+      currentRepTab === 'pessoal' ? renderPessoalReport(d, from, to) : renderFiscalReport(d, projD, from, to);
+    }
+  }
+
+  function repHeader(title, from, to) {
+    const period = from || to ? `Período: ${from ? fmtDate(from) : 'início'} a ${to ? fmtDate(to) : 'hoje'}` : 'Todos os períodos';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:2px solid var(--primary)">
+      <div><div style="font-size:18px;font-weight:700">${title}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">KM Solutions · Gerado em ${new Date().toLocaleString('pt-BR')}</div></div>
+      <div style="text-align:right;font-size:12px;color:var(--text-muted)">${period}</div>
+    </div>`;
+  }
+
+  function kpi(label, value, color='') {
+    return `<div class="rep-kpi"><div class="rep-kpi-label">${label}</div><div class="rep-kpi-value" style="color:${color||'var(--text)'}">${value}</div></div>`;
+  }
+
+  function renderGeralReport(d, from, to) {
+    const pending = d.totalValue - d.totalReceived;
+    const pct = d.totalValue > 0 ? Math.round(d.totalReceived/d.totalValue*100) : 0;
+    const byTypeRows = Object.entries(d.byType).sort((a,b)=>b[1].value-a[1].value).map(([type,v])=>`
+      <tr><td><b>${type}</b></td><td>${v.count}</td><td>${fmt(v.value)}</td>
+      <td style="color:var(--green)">${fmt(v.received)}</td>
+      <td style="color:var(--orange)">${fmt(v.value-v.received)}</td>
+      <td>${v.value>0?Math.round(v.received/v.value*100):0}%</td></tr>`).join('');
+
+    const projRows = d.projects.map(p => {
+      const rec = d.payments.filter(x=>x.projectId===p.id).reduce((s,x)=>s+x.amount,0);
+      return `<tr>
+        <td><b>${p.title}</b></td><td>${p.studentName}</td><td>${p.type}</td>
+        <td>${fmtDate(p.dueDate)}</td><td>${statusBadge(p.status)}</td>
+        <td>${fmt(p.value)}</td><td style="color:var(--green)">${fmt(rec)}</td>
+        <td>${payBadge(p.paymentStatus)}</td></tr>`;
+    }).join('');
+
+    document.getElementById('report-output').innerHTML = `
+      <div class="rep-section">
+        ${repHeader('📊 Relatório Geral de Projetos', from, to)}
+        <div class="rep-kpi-grid">
+          ${kpi('Total de Projetos', d.projects.length, 'var(--primary-light)')}
+          ${kpi('Valor Total', fmt(d.totalValue))}
+          ${kpi('Total Recebido', fmt(d.totalReceived), 'var(--green)')}
+          ${kpi('Pendente', fmt(pending), 'var(--orange)')}
+          ${kpi('% Recebido', pct+'%', pct>=80?'var(--green)':'var(--orange)')}
+          ${kpi('Concluídos', d.byStatus['concluido']||0, 'var(--green)')}
+          ${kpi('Em Andamento', d.byStatus['em_andamento']||0, 'var(--accent)')}
+          ${kpi('Atrasados', d.projects.filter(p=>new Date(p.dueDate)<new Date()&&p.status!=='concluido'&&p.status!=='arquivado').length, 'var(--red)')}
+        </div>
+      </div>
+
+      <div class="rep-section">
+        <h3>📂 Desempenho por Tipo de Trabalho</h3>
+        <table class="rep-table"><thead><tr>
+          <th>Tipo</th><th>Qtd</th><th>Valor Total</th><th>Recebido</th><th>Pendente</th><th>% Recebido</th>
+        </tr></thead><tbody>${byTypeRows || '<tr><td colspan="6" class="empty">Sem dados</td></tr>'}</tbody></table>
+      </div>
+
+      <div class="rep-section">
+        <h3>📋 Lista Completa de Projetos (${d.projects.length})</h3>
+        <table class="rep-table"><thead><tr>
+          <th>Título</th><th>Aluno</th><th>Tipo</th><th>Prazo</th><th>Status</th><th>Valor</th><th>Recebido</th><th>Pgto</th>
+        </tr></thead><tbody>${projRows || '<tr><td colspan="8" class="empty">Sem projetos</td></tr>'}</tbody></table>
+      </div>`;
+  }
+
+  function renderProjetoReport(p) {
+    const totalPaid = p.payments.reduce((s,x)=>s+x.amount,0);
+    const pct = p.value>0?Math.round(totalPaid/p.value*100):0;
+    const payRows = p.payments.map(x=>`<tr><td>${fmtDate(x.paymentDate)}</td><td>${fmt(x.amount)}</td><td>${x.method||'-'}</td><td>${x.notes||'-'}</td></tr>`).join('');
+    const evRows  = p.events.map(x=>`<tr><td>${fmtDate(x.eventDate)}</td><td>${x.eventType}</td><td>${x.description||'-'}</td><td>${x.completed?'✅ Sim':'⏳ Não'}</td></tr>`).join('');
+    const msRows  = p.milestones.map(x=>`<tr><td>${x.milestone}</td><td>${x.completed?'✅ Concluído':'⏳ Pendente'}</td><td>${x.completedDate?fmtDate(x.completedDate):'-'}</td></tr>`).join('');
+
+    document.getElementById('report-output').innerHTML = `
+      <div class="rep-section">
+        ${repHeader(`📋 Relatório: ${p.title}`, '', '')}
+        <div class="rep-kpi-grid">
+          ${kpi('Aluno', p.studentName)}
+          ${kpi('Tipo', p.type)}
+          ${kpi('Prazo', fmtDate(p.dueDate))}
+          ${kpi('Status', p.status.replace('_',' '))}
+          ${kpi('Valor Total', fmt(p.value))}
+          ${kpi('Recebido', fmt(totalPaid), 'var(--green)')}
+          ${kpi('Pendente', fmt(p.value-totalPaid), 'var(--orange)')}
+          ${kpi('% Recebido', pct+'%', pct===100?'var(--green)':'var(--orange)')}
+        </div>
+        ${p.description ? `<div style="background:var(--surface2);border-radius:8px;padding:12px;font-size:13px;color:var(--text-muted)"><b>Descrição:</b> ${p.description}</div>` : ''}
+      </div>
+      <div class="rep-section">
+        <h3>💰 Histórico de Pagamentos</h3>
+        <table class="rep-table"><thead><tr><th>Data</th><th>Valor</th><th>Método</th><th>Obs</th></tr></thead>
+        <tbody>${payRows||'<tr><td colspan="4" class="empty">Sem pagamentos</td></tr>'}</tbody></table>
+        <div style="margin-top:10px;font-weight:600;font-size:13px">Total recebido: <span style="color:var(--green)">${fmt(totalPaid)}</span></div>
+      </div>
+      <div class="rep-section">
+        <h3>📅 Agenda / Eventos</h3>
+        <table class="rep-table"><thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Concluído</th></tr></thead>
+        <tbody>${evRows||'<tr><td colspan="4" class="empty">Sem eventos</td></tr>'}</tbody></table>
+      </div>
+      <div class="rep-section">
+        <h3>🎯 Marcos de Progresso</h3>
+        <table class="rep-table"><thead><tr><th>Marco</th><th>Status</th><th>Data Conclusão</th></tr></thead>
+        <tbody>${msRows||'<tr><td colspan="3" class="empty">Sem marcos</td></tr>'}</tbody></table>
+      </div>`;
+  }
+
+  function renderFinanceiroReport(d, from, to) {
+    const pending = d.totalValue - d.totalReceived;
+    const byTypeRows = Object.entries(d.byType).sort((a,b)=>b[1].value-a[1].value).map(([type,v])=>`
+      <tr><td><b>${type}</b></td><td>${v.count}</td>
+      <td>${fmt(v.value)}</td><td style="color:var(--green)">${fmt(v.received)}</td>
+      <td style="color:var(--orange)">${fmt(v.value-v.received)}</td>
+      <td>${v.value>0?Math.round(v.received/v.value*100):0}%</td></tr>`).join('');
+    const payRows = d.payments.sort((a,b)=>b.paymentDate.localeCompare(a.paymentDate)).map(pay=>{
+      const proj = d.projects.find(p=>p.id===pay.projectId);
+      return `<tr><td>${fmtDate(pay.paymentDate)}</td><td>${proj?.title||'-'}</td><td>${proj?.studentName||'-'}</td>
+        <td>${fmt(pay.amount)}</td><td>${pay.method||'-'}</td><td>${pay.notes||'-'}</td></tr>`;
+    }).join('');
+
+    document.getElementById('report-output').innerHTML = `
+      <div class="rep-section">
+        ${repHeader('💰 Relatório Financeiro de Projetos', from, to)}
+        <div class="rep-kpi-grid">
+          ${kpi('Projetos', d.projects.length)}
+          ${kpi('Faturamento Bruto', fmt(d.totalValue))}
+          ${kpi('Total Recebido', fmt(d.totalReceived), 'var(--green)')}
+          ${kpi('A Receber', fmt(pending), 'var(--orange)')}
+          ${kpi('Não Pago', d.byPayment['nao_pago']||0, 'var(--red)')}
+          ${kpi('Parcial', d.byPayment['parcialmente_pago']||0, 'var(--orange)')}
+          ${kpi('Pago', d.byPayment['totalmente_pago']||0, 'var(--green)')}
+          ${kpi('Ticket Médio', d.projects.length>0?fmt(d.totalValue/d.projects.length):fmt(0))}
+        </div>
+      </div>
+      <div class="rep-section">
+        <h3>📂 Receita por Tipo (o que você mais vende)</h3>
+        <table class="rep-table"><thead><tr>
+          <th>Tipo</th><th>Qtd</th><th>Faturamento</th><th>Recebido</th><th>Pendente</th><th>% Rec.</th>
+        </tr></thead><tbody>${byTypeRows||'<tr><td colspan="6" class="empty">Sem dados</td></tr>'}</tbody></table>
+      </div>
+      <div class="rep-section">
+        <h3>💳 Todos os Recebimentos (${d.payments.length})</h3>
+        <table class="rep-table"><thead><tr>
+          <th>Data</th><th>Projeto</th><th>Aluno</th><th>Valor</th><th>Método</th><th>Obs</th>
+        </tr></thead><tbody>${payRows||'<tr><td colspan="6" class="empty">Nenhum recebimento</td></tr>'}</tbody></table>
+        <div style="margin-top:10px;font-weight:700;font-size:14px">Total recebido no período: <span style="color:var(--green)">${fmt(d.totalReceived)}</span></div>
+      </div>`;
+  }
+
+  function renderPessoalReport(d, from, to) {
+    const byCatRows = Object.entries(d.byCat).sort((a,b)=>b[1]-a[1]).map(([cat,val])=>`
+      <tr><td>${cat}</td><td style="color:var(--red)">${fmt(val)}</td><td>${d.totalSaidas>0?Math.round(val/d.totalSaidas*100):0}%</td></tr>`).join('');
+    const txRows = d.transactions.map(t=>`
+      <tr><td>${fmtDate(t.date)}</td>
+      <td>${t.type==='entrada'?'<span class="badge badge-green">Entrada</span>':'<span class="badge badge-red">Saída</span>'}</td>
+      <td>${t.category}</td><td>${t.description||'-'}</td>
+      <td style="font-weight:600;color:${t.type==='entrada'?'var(--green)':'var(--red)'}">
+        ${t.type==='entrada'?'+':'-'}${fmt(t.amount)}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${t.source==='project_payment'?'🔗 Projeto':'Manual'}</td>
+      </tr>`).join('');
+
+    document.getElementById('report-output').innerHTML = `
+      <div class="rep-section">
+        ${repHeader('💵 Relatório de Finanças Pessoais', from, to)}
+        <div class="rep-kpi-grid">
+          ${kpi('Total Entradas', fmt(d.totalEntradas), 'var(--green)')}
+          ${kpi('Total Saídas', fmt(d.totalSaidas), 'var(--red)')}
+          ${kpi('Saldo', fmt(d.saldo), d.saldo>=0?'var(--green)':'var(--red)')}
+          ${kpi('Transações', d.transactions.length)}
+          ${kpi('Categorias', Object.keys(d.byCat).length)}
+          ${kpi('% Comprometido', d.totalEntradas>0?Math.round(d.totalSaidas/d.totalEntradas*100)+'%':'-%', 'var(--orange)')}
+        </div>
+      </div>
+      <div class="rep-section">
+        <h3>🥧 Gastos por Categoria</h3>
+        <table class="rep-table"><thead><tr><th>Categoria</th><th>Valor</th><th>% dos Gastos</th></tr></thead>
+        <tbody>${byCatRows||'<tr><td colspan="3" class="empty">Sem gastos no período</td></tr>'}</tbody></table>
+        <div style="margin-top:10px;font-weight:700;font-size:14px">Total gasto: <span style="color:var(--red)">${fmt(d.totalSaidas)}</span></div>
+      </div>
+      <div class="rep-section">
+        <h3>📋 Extrato Completo (${d.transactions.length} lançamentos)</h3>
+        <table class="rep-table"><thead><tr>
+          <th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Origem</th>
+        </tr></thead><tbody>${txRows||'<tr><td colspan="6" class="empty">Sem lançamentos</td></tr>'}</tbody></table>
+      </div>`;
+  }
+
+  function renderFiscalReport(personal, projects, from, to) {
+    const regime = document.getElementById('r-tax-regime').value;
+    const bruto = projects.totalReceived;
+    const entradas = personal.totalEntradas;
+    const saidas   = personal.totalSaidas;
+
+    let taxRate = 0, taxLabel = '', taxObs = '';
+    if (regime === 'mei') {
+      taxRate = 0; taxLabel = 'MEI — DAS fixo mensal';
+      taxObs = '⚠️ MEI paga um valor fixo de DAS por mês (em 2025: ~R$ 75,90 para serviços). Verifique o valor atual no Portal do Empreendedor.';
+    } else if (regime === 'simples6') {
+      taxRate = 0.06; taxLabel = 'Simples Nacional — 6%';
+      taxObs = 'Anexo III do Simples Nacional. Alíquota efetiva pode variar com o faturamento acumulado nos últimos 12 meses.';
+    } else if (regime === 'simples15') {
+      taxRate = 0.155; taxLabel = 'Simples Nacional — 15,5%';
+      taxObs = 'Anexo V do Simples Nacional. Consulte seu contador para confirmar o anexo correto para sua atividade.';
+    } else {
+      taxRate = 0.13; taxLabel = 'Lucro Presumido — ~13%';
+      taxObs = 'Estimativa para prestação de serviços (IRPJ + CSLL + PIS + COFINS + ISS). Valor exato depende do município e atividade.';
+    }
+
+    const impostoEstimado = bruto * taxRate;
+    const liquido = bruto - impostoEstimado - saidas;
+
+    document.getElementById('report-output').innerHTML = `
+      <div class="rep-section">
+        ${repHeader('🧾 Relatório Fiscal / Impostos', from, to)}
+        <div style="background:rgba(245,158,11,.1);border:1px solid var(--orange);border-radius:8px;padding:12px;font-size:12px;color:var(--orange);margin-bottom:16px">
+          ⚠️ Este relatório é uma <b>estimativa</b>. Consulte sempre um contador para declarações oficiais.
+        </div>
+        <div class="rep-kpi-grid">
+          ${kpi('Regime', taxLabel)}
+          ${kpi('Faturamento Bruto (projetos)', fmt(bruto))}
+          ${kpi('Imposto Estimado', fmt(impostoEstimado), 'var(--red)')}
+          ${kpi('Faturamento Líquido', fmt(bruto - impostoEstimado), 'var(--green)')}
+          ${kpi('Entradas Pessoais', fmt(entradas), 'var(--green)')}
+          ${kpi('Gastos Pessoais', fmt(saidas), 'var(--red)')}
+          ${kpi('Sobra Estimada', fmt(liquido), liquido>=0?'var(--green)':'var(--red)')}
+          ${taxRate>0 ? kpi('Alíquota', (taxRate*100).toFixed(1)+'%') : ''}
+        </div>
+        <div style="background:var(--surface2);border-radius:8px;padding:14px;font-size:13px;line-height:1.8">
+          <b>📊 Demonstrativo:</b><br>
+          Faturamento bruto: <b>${fmt(bruto)}</b><br>
+          ${taxRate>0 ? `(-) Imposto estimado (${(taxRate*100).toFixed(1)}%): <b style="color:var(--red)">-${fmt(impostoEstimado)}</b><br>` : '(-) DAS MEI fixo: verifique valor atual<br>'}
+          Faturamento líquido: <b style="color:var(--green)">${fmt(bruto - impostoEstimado)}</b><br>
+          (-) Gastos pessoais: <b style="color:var(--red)">-${fmt(saidas)}</b><br>
+          <b>Sobra estimada: <span style="color:${liquido>=0?'var(--green)':'var(--red)'}">${fmt(liquido)}</span></b>
+        </div>
+        <div style="margin-top:12px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px">${taxObs}</div>
+      </div>
+      <div class="rep-section">
+        <h3>📋 Recebimentos de Projetos no Período</h3>
+        <table class="rep-table"><thead><tr><th>Projeto</th><th>Tipo</th><th>Aluno</th><th>Recebido</th></tr></thead>
+        <tbody>${projects.projects.map(p=>{
+          const rec = projects.payments.filter(x=>x.projectId===p.id).reduce((s,x)=>s+x.amount,0);
+          return rec>0?`<tr><td>${p.title}</td><td>${p.type}</td><td>${p.studentName}</td><td style="color:var(--green)">${fmt(rec)}</td></tr>`:'';
+        }).join('')||'<tr><td colspan="4" class="empty">Sem recebimentos</td></tr>'}</tbody></table>
+      </div>`;
+  }
+
+  function printReport() {
+    window.print();
+  }
+
+  // ══════════════════════════════════════════════════════════════
   // FINANÇAS PESSOAIS
   // ══════════════════════════════════════════════════════════════
   let finCategories = [];
@@ -1116,6 +1613,7 @@
 
   // ── INIT ─────────────────────────────────────────────────────
   loadDashboard();
+  loadBibleVerse();
 </script>
 </body>
 </html>
