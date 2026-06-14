@@ -203,6 +203,7 @@
       .fin-grid { grid-template-columns: 1fr; }
       .modal { padding: 18px; }
       h1 { font-size: 19px; }
+      .logo { padding-left: 56px; }
     }
 
     @media print {
@@ -1094,8 +1095,7 @@
   ];
 
   function loadBibleVerse() {
-    const day = Math.floor(Date.now() / 86400000);
-    const v = VERSES[day % VERSES.length];
+    const v = VERSES[Math.floor(Math.random() * VERSES.length)];
     document.getElementById('bible-text').textContent = `"${v.t}"`;
     document.getElementById('bible-ref').textContent  = `— ${v.r}`;
   }
