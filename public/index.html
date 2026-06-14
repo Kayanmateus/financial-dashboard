@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Financial Projects Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --surface: #1a1a2e;
+      --surface2: #16213e;
+      --primary: #7c3aed;
+      --primary-light: #a78bfa;
+      --accent: #06b6d4;
+      --green: #10b981;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #2d2d4e;
+      --sidebar-w: 240px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+    /* SIDEBAR */
+    #sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; }
+    .logo { padding: 0 20px 24px; font-size: 18px; font-weight: 700; color: var(--primary-light); }
+    .logo span { color: var(--accent); }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 20px; cursor: pointer; color: var(--text-muted); transition: all .2s; border-left: 3px solid transparent; font-size: 14px; }
+    .nav-item:hover, .nav-item.active { color: var(--text); background: var(--surface2); border-left-color: var(--primary); }
+    .nav-item .icon { font-size: 18px; }
+    .sidebar-footer { margin-top: auto; padding: 20px; }
+    .btn-new { width: 100%; padding: 10px; background: var(--primary); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: background .2s; }
+    .btn-new:hover { background: #6d28d9; }
+
+    /* MAIN */
+    #main { flex: 1; overflow-y: auto; padding: 28px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+
+    /* STAT CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .stat-value { font-size: 24px; font-weight: 700; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.purple { color: var(--primary-light); }
+
+    /* TABLE */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; align-items: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { padding: 10px 16px; text-align: left; color: var(--text-muted); background: var(--surface2); font-weight: 500; }
+    td { padding: 11px 16px; border-top: 1px solid var(--border); vertical-align: middle; }
+    tr:hover td { background: rgba(124,58,237,.06); }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: rgba(16,185,129,.15); color: var(--green); }
+    .badge-orange { background: rgba(245,158,11,.15); color: var(--orange); }
+    .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+    .badge-blue { background: rgba(6,182,212,.15); color: var(--accent); }
+    .badge-gray { background: rgba(148,163,184,.15); color: var(--text-muted); }
+    .badge-purple { background: rgba(124,58,237,.15); color: var(--primary-light); }
+
+    .btn-sm { padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: all .2s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-danger { background: rgba(239,68,68,.15); color: var(--red); }
+    .btn-danger:hover { background: rgba(239,68,68,.3); }
+    .btn-ghost { background: var(--surface2); color: var(--text); }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-whatsapp { background: rgba(37,211,102,.15); color: #25d366; }
+    .btn-whatsapp:hover { background: rgba(37,211,102,.3); }
+    .btn-archive { background: rgba(148,163,184,.12); color: var(--text-muted); }
+    .btn-archive:hover { background: rgba(148,163,184,.25); }
+    .actions { display: flex; gap: 5px; flex-wrap: wrap; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 540px; max-height: 92vh; overflow-y: auto; }
+    .modal h2 { font-size: 18px; margin-bottom: 20px; }
+    .form-grid { display: grid; gap: 14px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .field label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
+    .field input, .field select, .field textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; outline: none; transition: border .2s; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--primary); }
+    .field textarea { resize: vertical; min-height: 70px; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .btn-cancel { padding: 9px 20px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+    .btn-submit { padding: 9px 20px; border-radius: 8px; border: none; background: var(--primary); color: #fff; font-weight: 600; cursor: pointer; }
+    .btn-submit:hover { background: #6d28d9; }
+
+    /* DETAIL TABS */
+    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .tab { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 13px; }
+    .tab.active { color: var(--primary-light); border-bottom-color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* FINANCIAL */
+    .fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .fin-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .fin-card h3 { font-size: 14px; color: var(--text-muted); margin-bottom: 16px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+    .bar-label { width: 150px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; background: var(--surface2); border-radius: 99px; height: 8px; }
+    .bar-fill { height: 8px; border-radius: 99px; background: var(--primary); }
+    .bar-pct { width: 44px; text-align: right; font-size: 12px; color: var(--text-muted); }
+
+    /* SUB ITEMS */
+    .sub-list { display: flex; flex-direction: column; gap: 8px; }
+    .sub-item { background: var(--surface2); border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+    .sub-item input[type=checkbox] { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+    .sub-item.done > .sub-item-info span { text-decoration: line-through; color: var(--text-muted); }
+    .sub-item-info { flex: 1; }
+    .sub-item-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    /* AGENDA */
+    .event-list { display: flex; flex-direction: column; gap: 10px; }
+    .event-item { background: var(--surface2); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+    .event-date { font-size: 12px; color: var(--text-muted); min-width: 80px; }
+
+    /* PASSWORD */
+    .pw-field { position: relative; }
+    .pw-field input { padding-right: 36px; }
+    .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: var(--text-muted); background: none; border: none; font-size: 15px; }
+
+    .empty { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
+
+    /* WHATSAPP FLOAT BUTTON in detail */
+    .wa-btn-big { display: inline-flex; align-items: center; gap: 8px; background: #25d366; color: #fff; border: none; border-radius: 10px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; margin-top: 12px; }
+    .wa-btn-big:hover { background: #1da851; }
+
+    /* FILTER BAR */
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-bar select, .filter-bar input { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; }
+    .filter-bar select:focus, .filter-bar input:focus { border-color: var(--primary); }
+
+    @media (max-width: 640px) {
+      #sidebar { display: none; }
+      .form-row, .form-row-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="logo">💰 Financial<span>Pro</span></div>
+  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span class="icon">📊</span> Dashboard</div>
+  <div class="nav-item" data-page="projects" onclick="showPage('projects')"><span class="icon">📋</span> Projetos</div>
+  <div class="nav-item" data-page="agenda" onclick="showPage('agenda')"><span class="icon">📅</span> Agenda</div>
+  <div class="nav-item" data-page="financial" onclick="showPage('financial')"><span class="icon">💹</span> Financeiro</div>
+  <div class="sidebar-footer">
+    <button class="btn-new" onclick="openNewProject()">➕ Novo Projeto</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main id="main">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page active">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Visão geral dos seus projetos</p>
+    <div class="stats-grid" id="stat-cards"></div>
+    <div class="card">
+      <div class="card-header">
+        Projetos Recentes
+        <button class="btn-sm btn-primary" onclick="openNewProject()">➕ Novo</button>
+      </div>
+      <table><thead><tr>
+        <th>Título</th><th>Aluno</th><th>Tipo</th><th>Valor</th><th>Prazo</th><th>Pagamento</th><th>Ações</th>
+      </tr></thead><tbody id="dash-table"></tbody></table>
+    </div>
+  </div>
+
+  <!-- PROJECTS -->
+  <div id="page-projects" class="page">
+    <h1>Projetos</h1>
+    <p class="subtitle">Gerencie todos os seus projetos</p>
+    <div class="filter-bar">
+      <select id="filter-status" onchange="loadProjects()">
+        <option value="">Todos os status</option>
+        <option value="em_andamento">Em Andamento</option>
+        <option value="concluido">Concluído</option>
+        <option value="arquivado">Arquivado</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+      <select id="filter-payment" onchange="loadProjects()">
+        <option value="">Todos os pagamentos</option>
+        <option value="nao_pago">Não Pago</option>
+        <option value="parcialmente_pago">Parcial</option>
+        <option value="totalmente_pago">Pago</option>
+      </select>
+      <select id="filter-type" onchange="loadProjects()">
+        <option value="">Todos os tipos</option>
+        <option>TCC</option>
+        <option>Artigo Científico</option>
+        <option>Atividade de Extensão</option>
+        <option>Projeto Multidisciplinar</option>
+        <option>Projeto Transdisciplinar</option>
+        <option>Atividades Complementares</option>
+        <option>Eixo Temático</option>
+        <option>Outro</option>
+      </select>
+      <input id="filter-search" placeholder="🔍 Buscar..." oninput="loadProjects()" style="flex:1;min-width:160px" />
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span id="proj-count">Projetos</span>
+        <button class="btn-sm btn-primary" onclick="openNewProject()">➕ Novo</button>
+      </div>
+      <table><thead><tr>
+        <th>Título</th><th>Aluno</th><th>Tipo</th><th>Valor</th><th>Prazo</th><th>Status</th><th>Pagamento</th><th>Ações</th>
+      </tr></thead><tbody id="proj-table"></tbody></table>
+    </div>
+  </div>
+
+  <!-- AGENDA -->
+  <div id="page-agenda" class="page">
+    <h1>Agenda</h1>
+    <p class="subtitle">Próximos eventos e prazos</p>
+    <div class="card">
+      <div class="card-header">Eventos e Prazos</div>
+      <div style="padding:16px" id="agenda-list"></div>
+    </div>
+  </div>
+
+  <!-- FINANCIAL -->
+  <div id="page-financial" class="page">
+    <h1>Financeiro</h1>
+    <p class="subtitle">Análise financeira dos projetos</p>
+    <div class="stats-grid" id="fin-stats"></div>
+    <div class="fin-grid" id="fin-charts"></div>
+  </div>
+
+</main>
+
+<!-- ══════════════ MODAL: NOVO/EDITAR PROJETO ══════════════ -->
+<div class="modal-overlay" id="modal-project">
+  <div class="modal">
+    <h2 id="modal-project-title">Novo Projeto</h2>
+    <div class="form-grid">
+      <div class="field"><label>Título *</label><input id="f-title" placeholder="Nome do projeto" /></div>
+      <div class="form-row">
+        <div class="field"><label>Tipo *</label>
+          <select id="f-type">
+            <option value="">Selecione...</option>
+            <option>TCC</option>
+            <option>Artigo Científico</option>
+            <option>Atividade de Extensão</option>
+            <option>Projeto Multidisciplinar</option>
+            <option>Projeto Transdisciplinar</option>
+            <option>Atividades Complementares</option>
+            <option>Eixo Temático</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Valor (R$) *</label><input id="f-value" type="number" step="0.01" placeholder="0,00" /></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Nome do Aluno *</label><input id="f-student" placeholder="Nome completo" /></div>
+        <div class="field"><label>Prazo *</label><input id="f-due" type="date" /></div>
+      </div>
+      <div class="form-row">
+        <div class="field"><label>Email do Aluno *</label><input id="f-email" type="email" placeholder="email@exemplo.com" /></div>
+        <div class="field"><label>WhatsApp do Aluno</label><input id="f-phone" type="tel" placeholder="(11) 99999-9999" /></div>
+      </div>
+      <div class="field"><label>Senha do Aluno</label>
+        <div class="pw-field">
+          <input id="f-password" type="password" placeholder="Senha" />
+          <button class="pw-toggle" onclick="togglePw('f-password')">👁</button>
+        </div>
+      </div>
+      <div class="field"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes adicionais..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-project')">Cancelar</button>
+      <button class="btn-submit" onclick="saveProject()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: DETALHES DO PROJETO ══════════════ -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal" style="max-width:700px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 id="detail-title" style="font-size:17px;max-width:80%">Detalhes</h2>
+      <button onclick="closeModal('modal-detail')" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="showTab(event,'info')">📋 Info</div>
+      <div class="tab" onclick="showTab(event,'payments')">💰 Pagamentos</div>
+      <div class="tab" onclick="showTab(event,'events')">📅 Agenda</div>
+      <div class="tab" onclick="showTab(event,'milestones')">🎯 Marcos</div>
+    </div>
+    <div id="tab-info" class="tab-content active"></div>
+    <div id="tab-payments" class="tab-content"></div>
+    <div id="tab-events" class="tab-content"></div>
+    <div id="tab-milestones" class="tab-content"></div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: PAGAMENTO ══════════════ -->
+<div class="modal-overlay" id="modal-payment">
+  <div class="modal" style="max-width:420px">
+    <h2>Registrar Pagamento</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field"><label>Valor (R$) *</label><input id="p-amount" type="number" step="0.01" /></div>
+        <div class="field"><label>Data *</label><input id="p-date" type="date" /></div>
+      </div>
+      <div class="field"><label>Método</label>
+        <select id="p-method">
+          <option>PIX</option><option>Transferência</option><option>Boleto</option><option>Dinheiro</option><option>Cartão de Crédito</option><option>Cartão de Débito</option>
+        </select>
+      </div>
+      <div class="field"><label>Observações</label><textarea id="p-notes" rows="2" placeholder="Opcional..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-payment')">Cancelar</button>
+      <button class="btn-submit" onclick="savePayment()">Registrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: EVENTO ══════════════ -->
+<div class="modal-overlay" id="modal-event">
+  <div class="modal" style="max-width:420px">
+    <h2>Adicionar Evento</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field"><label>Tipo</label>
+          <select id="e-type">
+            <option>Prazo</option><option>Reunião</option><option>Entrega</option><option>Apresentação</option><option>Defesa</option><option>Revisão</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="field"><label>Data *</label><input id="e-date" type="date" /></div>
+      </div>
+      <div class="field"><label>Descrição</label><textarea id="e-desc" rows="2" placeholder="Detalhe do evento..."></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-event')">Cancelar</button>
+      <button class="btn-submit" onclick="saveEvent()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: MARCO ══════════════ -->
+<div class="modal-overlay" id="modal-milestone">
+  <div class="modal" style="max-width:420px">
+    <h2>Adicionar Marco</h2>
+    <div class="form-grid">
+      <div class="field"><label>Descrição do Marco *</label><input id="m-text" placeholder="Ex: Entrega do capítulo 1" /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-milestone')">Cancelar</button>
+      <button class="btn-submit" onclick="saveMilestone()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentProjectId = null;
+  let editingProjectId = null;
+  let allProjects = [];
+
+  // ── NAVIGATION ──────────────────────────────────────────────
+  function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + name).classList.add('active');
+    document.querySelector(`[data-page="${name}"]`).classList.add('active');
+    if (name === 'dashboard') loadDashboard();
+    if (name === 'projects') loadProjects();
+    if (name === 'agenda') loadAgenda();
+    if (name === 'financial') loadFinancial();
+  }
+
+  // ── MODALS ───────────────────────────────────────────────────
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+  });
+
+  function openNewProject() {
+    editingProjectId = null;
+    document.getElementById('modal-project-title').textContent = '➕ Novo Projeto';
+    ['f-title','f-value','f-student','f-email','f-phone','f-password','f-desc'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('f-type').value = '';
+    document.getElementById('f-due').value = '';
+    openModal('modal-project');
+  }
+
+  function openEditProject(p) {
+    editingProjectId = p.id;
+    document.getElementById('modal-project-title').textContent = '✏️ Editar Projeto';
+    document.getElementById('f-title').value = p.title;
+    document.getElementById('f-type').value = p.type;
+    document.getElementById('f-value').value = p.value;
+    document.getElementById('f-student').value = p.studentName;
+    document.getElementById('f-email').value = p.studentEmail;
+    document.getElementById('f-phone').value = p.studentPhone || '';
+    document.getElementById('f-due').value = p.dueDate;
+    document.getElementById('f-desc').value = p.description || '';
+    document.getElementById('f-password').value = '';
+    openModal('modal-project');
+  }
+
+  function togglePw(id) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+
+  // ── TABS (detail modal) ──────────────────────────────────────
+  function showTab(e, name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    e.target.classList.add('active');
+  }
+
+  // ── HELPERS ──────────────────────────────────────────────────
+  const fmt = v => 'R$ ' + Number(v).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const fmtDate = d => d ? d.slice(0,10).split('-').reverse().join('/') : '-';
+  const cleanPhone = p => (p || '').replace(/\D/g,'');
+  const waLink = phone => `https://wa.me/55${cleanPhone(phone)}`;
+
+  const payBadge = s => ({
+    'nao_pago':          '<span class="badge badge-red">Não Pago</span>',
+    'parcialmente_pago': '<span class="badge badge-orange">Parcial</span>',
+    'totalmente_pago':   '<span class="badge badge-green">Pago ✓</span>'
+  }[s] || s);
+
+  const statusBadge = s => ({
+    'em_andamento': '<span class="badge badge-blue">Em Andamento</span>',
+    'concluido':    '<span class="badge badge-green">Concluído</span>',
+    'arquivado':    '<span class="badge badge-gray">Arquivado</span>',
+    'cancelado':    '<span class="badge badge-red">Cancelado</span>'
+  }[s] || s);
+
+  const isOverdue = p => new Date(p.dueDate) < new Date() && p.status !== 'concluido' && p.status !== 'arquivado';
+
+  // ── DASHBOARD ─────────────────────────────────────────────────
+  async function loadDashboard() {
+    const d = await fetch('/api/dashboard').then(r => r.json());
+    allProjects = d.projects;
+    document.getElementById('stat-cards').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Total de Projetos</div><div class="stat-value purple">${d.totalProjects}</div></div>
+      <div class="stat-card"><div class="stat-label">Valor Total</div><div class="stat-value">${fmt(d.totalValue)}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Recebido</div><div class="stat-value green">${fmt(d.totalReceived)}</div></div>
+      <div class="stat-card"><div class="stat-label">Pendente</div><div class="stat-value orange">${fmt(d.pending)}</div></div>
+      <div class="stat-card"><div class="stat-label">Concluídos</div><div class="stat-value green">${d.completed}</div></div>
+      <div class="stat-card"><div class="stat-label">Em Andamento</div><div class="stat-value purple">${d.inProgress}</div></div>
+      <div class="stat-card"><div class="stat-label">Atrasados</div><div class="stat-value red">${d.delayed}</div></div>
+    `;
+    renderRows('dash-table', d.projects.slice(0, 15), false);
+  }
+
+  // ── PROJECTS ──────────────────────────────────────────────────
+  async function loadProjects() {
+    const d = await fetch('/api/dashboard').then(r => r.json());
+    allProjects = d.projects;
+
+    const fStatus  = document.getElementById('filter-status').value;
+    const fPayment = document.getElementById('filter-payment').value;
+    const fType    = document.getElementById('filter-type').value;
+    const fSearch  = document.getElementById('filter-search').value.toLowerCase();
+
+    let list = d.projects.filter(p => {
+      if (fStatus  && p.status !== fStatus) return false;
+      if (fPayment && p.paymentStatus !== fPayment) return false;
+      if (fType    && p.type !== fType) return false;
+      if (fSearch  && !p.title.toLowerCase().includes(fSearch) && !p.studentName.toLowerCase().includes(fSearch)) return false;
+      return true;
+    });
+
+    document.getElementById('proj-count').textContent = `${list.length} projeto${list.length !== 1 ? 's' : ''}`;
+    renderRows('proj-table', list, true);
+  }
+
+  function renderRows(tbodyId, projects, showStatus) {
+    const tbody = document.getElementById(tbodyId);
+    if (!projects.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">Nenhum projeto encontrado</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = projects.map(p => {
+      const overdue = isOverdue(p) ? ' style="color:var(--red)"' : '';
+      const waBtn = p.studentPhone
+        ? `<a class="btn-sm btn-whatsapp" href="${waLink(p.studentPhone)}" target="_blank" title="WhatsApp">💬</a>`
+        : '';
+      return `<tr>
+        <td><b${overdue}>${p.title}</b>${isOverdue(p) ? ' <span class="badge badge-red" style="font-size:10px">Atrasado</span>' : ''}</td>
+        <td>${p.studentName}</td>
+        <td><span class="badge badge-purple">${p.type}</span></td>
+        <td>${fmt(p.value)}</td>
+        <td${overdue}>${fmtDate(p.dueDate)}</td>
+        ${showStatus ? `<td>${statusBadge(p.status)}</td>` : ''}
+        <td>${payBadge(p.paymentStatus)}</td>
+        <td><div class="actions">
+          <button class="btn-sm btn-ghost" onclick="openDetail(${p.id})">👁 Ver</button>
+          <button class="btn-sm btn-primary" onclick="loadAndEdit(${p.id})">✏️</button>
+          ${waBtn}
+          <button class="btn-sm btn-archive" onclick="archiveProject(${p.id},'${p.status}')" title="${p.status==='arquivado'?'Desarquivar':'Arquivar'}">${p.status==='arquivado'?'📂':'🗂️'}</button>
+          <button class="btn-sm btn-danger" onclick="deleteProject(${p.id})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function loadAndEdit(id) {
+    const p = await fetch(`/api/projects/${id}`).then(r => r.json());
+    openEditProject(p);
+  }
+
+  async function saveProject() {
+    const body = {
+      title:           document.getElementById('f-title').value.trim(),
+      type:            document.getElementById('f-type').value,
+      studentName:     document.getElementById('f-student').value.trim(),
+      studentEmail:    document.getElementById('f-email').value.trim(),
+      studentPhone:    document.getElementById('f-phone').value.trim(),
+      studentPassword: document.getElementById('f-password').value,
+      value:           document.getElementById('f-value').value,
+      dueDate:         document.getElementById('f-due').value,
+      description:     document.getElementById('f-desc').value.trim(),
+    };
+    if (!body.title || !body.type || !body.studentName || !body.studentEmail || !body.value || !body.dueDate) {
+      alert('Preencha todos os campos obrigatórios (*)'); return;
+    }
+    if (editingProjectId) {
+      await fetch(`/api/projects/${editingProjectId}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    } else {
+      if (!body.studentPassword) { alert('Informe a senha do aluno'); return; }
+      await fetch('/api/projects', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }
+    closeModal('modal-project');
+    loadDashboard();
+    if (document.getElementById('page-projects').classList.contains('active')) loadProjects();
+  }
+
+  async function archiveProject(id, currentStatus) {
+    const newStatus = currentStatus === 'arquivado' ? 'em_andamento' : 'arquivado';
+    const label = newStatus === 'arquivado' ? 'arquivar' : 'desarquivar';
+    if (!confirm(`Deseja ${label} este projeto?`)) return;
+    await fetch(`/api/projects/${id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ status: newStatus }) });
+    loadDashboard();
+    if (document.getElementById('page-projects').classList.contains('active')) loadProjects();
+  }
+
+  async function deleteProject(id) {
+    if (!confirm('Excluir este projeto permanentemente? Esta ação não pode ser desfeita.')) return;
+    await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    loadDashboard();
+    if (document.getElementById('page-projects').classList.contains('active')) loadProjects();
+  }
+
+  // ── DETAIL MODAL ─────────────────────────────────────────────
+  async function openDetail(id) {
+    currentProjectId = id;
+    const p = await fetch(`/api/projects/${id}`).then(r => r.json());
+    document.getElementById('detail-title').textContent = p.title;
+    // Reset tabs
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===0));
+    document.querySelectorAll('.tab-content').forEach((t,i) => t.classList.toggle('active', i===0));
+
+    const totalPaid = p.payments.reduce((s,x) => s + x.amount, 0);
+    const pct = p.value > 0 ? Math.min(100, Math.round(totalPaid/p.value*100)) : 0;
+
+    // ── INFO TAB ──
+    const waSection = p.studentPhone ? `
+      <a class="wa-btn-big" href="${waLink(p.studentPhone)}" target="_blank">
+        💬 Chamar no WhatsApp (${p.studentPhone})
+      </a>` : `<p style="color:var(--text-muted);font-size:13px;margin-top:10px">Nenhum WhatsApp cadastrado</p>`;
+
+    document.getElementById('tab-info').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13px">
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Tipo</div><span class="badge badge-purple">${p.type}</span></div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Status</div>${statusBadge(p.status)}</div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Aluno</div><b>${p.studentName}</b></div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Prazo</div>${fmtDate(p.dueDate)} ${isOverdue(p)?'<span class="badge badge-red">Atrasado</span>':''}</div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Email</div><a href="mailto:${p.studentEmail}" style="color:var(--accent)">${p.studentEmail}</a></div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Senha (aluno)</div><span style="font-family:monospace;background:var(--surface2);padding:2px 8px;border-radius:4px">${p.studentPassword||'-'}</span></div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Valor Total</div><b style="font-size:16px">${fmt(p.value)}</b></div>
+        <div><div style="color:var(--text-muted);margin-bottom:4px">Pagamento</div>${payBadge(p.paymentStatus)}</div>
+        ${p.description ? `<div style="grid-column:1/-1"><div style="color:var(--text-muted);margin-bottom:4px">Descrição</div>${p.description}</div>` : ''}
+      </div>
+
+      <div style="margin-top:16px;background:var(--surface2);border-radius:10px;padding:14px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px">
+          <span>Arrecadado: <b style="color:var(--green)">${fmt(totalPaid)}</b></span>
+          <span>Meta: <b>${fmt(p.value)}</b></span>
+          <span style="color:var(--primary-light)">${pct}%</span>
+        </div>
+        <div class="bar-track" style="height:10px"><div class="bar-fill" style="width:${pct}%;background:var(--green);height:10px"></div></div>
+      </div>
+
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="status-sel" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:13px">
+          <option value="em_andamento" ${p.status==='em_andamento'?'selected':''}>Em Andamento</option>
+          <option value="concluido"    ${p.status==='concluido'?'selected':''}>Concluído ✓</option>
+          <option value="arquivado"    ${p.status==='arquivado'?'selected':''}>Arquivado 🗂️</option>
+          <option value="cancelado"    ${p.status==='cancelado'?'selected':''}>Cancelado ✕</option>
+        </select>
+        <button class="btn-sm btn-primary" onclick="updateStatus()">Atualizar Status</button>
+        <button class="btn-sm btn-primary" onclick="closeModal('modal-detail');loadAndEdit(${p.id})">✏️ Editar Projeto</button>
+      </div>
+
+      ${waSection}
+    `;
+
+    // ── PAYMENTS TAB ──
+    document.getElementById('tab-payments').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:13px"><b style="color:var(--green)">${fmt(totalPaid)}</b> recebido de <b>${fmt(p.value)}</b></div>
+        <button class="btn-sm btn-primary" onclick="openModal('modal-payment')">➕ Registrar Pagamento</button>
+      </div>
+      <div class="sub-list">
+        ${p.payments.length ? p.payments.map(pay => `
+          <div class="sub-item">
+            <div style="font-size:20px">💳</div>
+            <div class="sub-item-info">
+              <div><b>${fmt(pay.amount)}</b> — ${pay.method||'Método não informado'}</div>
+              <div class="sub-item-meta">${fmtDate(pay.paymentDate)}${pay.notes?' · '+pay.notes:''}</div>
+            </div>
+            <button class="btn-sm btn-danger" onclick="deletePayment(${pay.id})">🗑️</button>
+          </div>`).join('') : '<div class="empty">Nenhum pagamento registrado ainda</div>'}
+      </div>`;
+
+    // ── EVENTS TAB ──
+    document.getElementById('tab-events').innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn-sm btn-primary" onclick="openModal('modal-event')">➕ Adicionar Evento</button>
+      </div>
+      <div class="sub-list">
+        ${p.events.length ? p.events.map(ev => `
+          <div class="sub-item ${ev.completed?'done':''}">
+            <input type="checkbox" ${ev.completed?'checked':''} onchange="toggleEvent(${ev.id},this.checked)" />
+            <div class="sub-item-info">
+              <span><b>${ev.eventType}</b>${ev.description?' — '+ev.description:''}</span>
+              <div class="sub-item-meta">📅 ${fmtDate(ev.eventDate)}</div>
+            </div>
+            <button class="btn-sm btn-danger" onclick="deleteEvent(${ev.id})">🗑️</button>
+          </div>`).join('') : '<div class="empty">Nenhum evento cadastrado</div>'}
+      </div>`;
+
+    // ── MILESTONES TAB ──
+    document.getElementById('tab-milestones').innerHTML = `
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <button class="btn-sm btn-primary" onclick="openModal('modal-milestone')">➕ Adicionar Marco</button>
+      </div>
+      <div class="sub-list">
+        ${p.milestones.length ? p.milestones.map(m => `
+          <div class="sub-item ${m.completed?'done':''}">
+            <input type="checkbox" ${m.completed?'checked':''} onchange="toggleMilestone(${m.id},this.checked)" />
+            <div class="sub-item-info">
+              <span>${m.milestone}</span>
+              ${m.completedDate?`<div class="sub-item-meta">✓ Concluído em ${fmtDate(m.completedDate)}</div>`:''}
+            </div>
+            <button class="btn-sm btn-danger" onclick="deleteMilestone(${m.id})">🗑️</button>
+          </div>`).join('') : '<div class="empty">Nenhum marco cadastrado</div>'}
+      </div>`;
+
+    openModal('modal-detail');
+  }
+
+  async function updateStatus() {
+    const status = document.getElementById('status-sel').value;
+    await fetch(`/api/projects/${currentProjectId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status}) });
+    openDetail(currentProjectId);
+    loadDashboard();
+    if (document.getElementById('page-projects').classList.contains('active')) loadProjects();
+  }
+
+  // ── PAYMENTS ─────────────────────────────────────────────────
+  async function savePayment() {
+    const body = { amount: document.getElementById('p-amount').value, paymentDate: document.getElementById('p-date').value, method: document.getElementById('p-method').value, notes: document.getElementById('p-notes').value };
+    if (!body.amount || !body.paymentDate) { alert('Preencha valor e data'); return; }
+    await fetch(`/api/projects/${currentProjectId}/payments`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    closeModal('modal-payment');
+    openDetail(currentProjectId);
+    loadDashboard();
+  }
+
+  async function deletePayment(id) {
+    if (!confirm('Excluir este pagamento?')) return;
+    await fetch(`/api/payments/${id}`, { method:'DELETE' });
+    openDetail(currentProjectId);
+    loadDashboard();
+  }
+
+  // ── EVENTS ───────────────────────────────────────────────────
+  async function saveEvent() {
+    const body = { eventType: document.getElementById('e-type').value, eventDate: document.getElementById('e-date').value, description: document.getElementById('e-desc').value };
+    if (!body.eventDate) { alert('Informe a data'); return; }
+    await fetch(`/api/projects/${currentProjectId}/events`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    closeModal('modal-event');
+    openDetail(currentProjectId);
+  }
+
+  async function toggleEvent(id, completed) {
+    await fetch(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({completed}) });
+    openDetail(currentProjectId);
+  }
+
+  async function deleteEvent(id) {
+    if (!confirm('Excluir este evento?')) return;
+    await fetch(`/api/events/${id}`, { method:'DELETE' });
+    openDetail(currentProjectId);
+  }
+
+  // ── MILESTONES ───────────────────────────────────────────────
+  async function saveMilestone() {
+    const milestone = document.getElementById('m-text').value.trim();
+    if (!milestone) { alert('Informe o marco'); return; }
+    await fetch(`/api/projects/${currentProjectId}/milestones`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({milestone}) });
+    closeModal('modal-milestone');
+    openDetail(currentProjectId);
+  }
+
+  async function toggleMilestone(id, completed) {
+    await fetch(`/api/milestones/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({completed}) });
+    openDetail(currentProjectId);
+  }
+
+  async function deleteMilestone(id) {
+    if (!confirm('Excluir este marco?')) return;
+    await fetch(`/api/milestones/${id}`, { method:'DELETE' });
+    openDetail(currentProjectId);
+  }
+
+  // ── AGENDA ───────────────────────────────────────────────────
+  async function loadAgenda() {
+    const d = await fetch('/api/dashboard').then(r => r.json());
+    const events = d.projects
+      .filter(p => p.status !== 'arquivado' && p.status !== 'cancelado')
+      .map(p => ({ date: p.dueDate, title: 'Prazo: ' + p.title, sub: p.studentName, type: 'Prazo', overdue: isOverdue(p), id: p.id }))
+      .sort((a,b) => a.date.localeCompare(b.date));
+
+    const el = document.getElementById('agenda-list');
+    if (!events.length) { el.innerHTML = '<div class="empty">Nenhum evento próximo</div>'; return; }
+    el.innerHTML = '<div class="event-list">' + events.map(ev => `
+      <div class="event-item" onclick="openDetail(${ev.id})" style="cursor:pointer">
+        <div class="event-date" style="${ev.overdue?'color:var(--red)':''}">📅 ${fmtDate(ev.date)}</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600">${ev.title}</div>
+          <div style="font-size:12px;color:var(--primary-light)">${ev.sub}</div>
+        </div>
+        <span class="badge ${ev.overdue?'badge-red':'badge-orange'}">${ev.overdue?'Atrasado':ev.type}</span>
+      </div>`).join('') + '</div>';
+  }
+
+  // ── FINANCIAL ─────────────────────────────────────────────────
+  async function loadFinancial() {
+    const [dash, report] = await Promise.all([
+      fetch('/api/dashboard').then(r=>r.json()),
+      fetch('/api/financial-report').then(r=>r.json())
+    ]);
+    const recPct = dash.totalValue > 0 ? Math.round(dash.totalReceived/dash.totalValue*100) : 0;
+    document.getElementById('fin-stats').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Valor Total</div><div class="stat-value">${fmt(dash.totalValue)}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Recebido</div><div class="stat-value green">${fmt(dash.totalReceived)}</div></div>
+      <div class="stat-card"><div class="stat-label">Pendente</div><div class="stat-value orange">${fmt(dash.pending)}</div></div>
+      <div class="stat-card"><div class="stat-label">% Arrecadado</div><div class="stat-value purple">${recPct}%</div></div>
+    `;
+    const bs = report.byStatus;
+    const total = dash.totalProjects || 1;
+    const statusHtml = `
+      <div class="fin-card"><h3>📊 Status de Pagamentos</h3>
+        <div class="bar-row"><div class="bar-label">Não Pago</div><div class="bar-track"><div class="bar-fill" style="width:${pct(bs.nao_pago,total)}%;background:var(--red)"></div></div><div class="bar-pct">${bs.nao_pago} proj</div></div>
+        <div class="bar-row"><div class="bar-label">Parcialmente Pago</div><div class="bar-track"><div class="bar-fill" style="width:${pct(bs.parcialmente_pago,total)}%;background:var(--orange)"></div></div><div class="bar-pct">${bs.parcialmente_pago} proj</div></div>
+        <div class="bar-row"><div class="bar-label">Totalmente Pago</div><div class="bar-track"><div class="bar-fill" style="width:${pct(bs.totalmente_pago,total)}%;background:var(--green)"></div></div><div class="bar-pct">${bs.totalmente_pago} proj</div></div>
+      </div>`;
+    const types = Object.entries(report.byType);
+    const maxVal = Math.max(...types.map(([,v])=>v.value), 1);
+    const typesHtml = types.length ? `
+      <div class="fin-card"><h3>📂 Valor por Tipo</h3>
+        ${types.map(([k,v]) => `
+          <div class="bar-row">
+            <div class="bar-label">${k}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct(v.value,maxVal)}%"></div></div>
+            <div class="bar-pct" style="width:70px">${fmt(v.value)}</div>
+          </div>`).join('')}
+      </div>
+      <div class="fin-card"><h3>💰 Arrecadação por Tipo</h3>
+        ${types.map(([k,v]) => `
+          <div class="bar-row">
+            <div class="bar-label">${k}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${v.value>0?pct(v.received,v.value):0}%;background:var(--green)"></div></div>
+            <div class="bar-pct">${v.value>0?Math.round(v.received/v.value*100):0}%</div>
+          </div>`).join('')}
+      </div>` : '';
+    document.getElementById('fin-charts').innerHTML = statusHtml + typesHtml;
+  }
+
+  function pct(a, b) { return b > 0 ? Math.min(100, Math.round(a / b * 100)) : 0; }
+
+  // ── DELETE ROUTES (need to add in server) ────────────────────
+  // ── INIT ─────────────────────────────────────────────────────
+  loadDashboard();
+</script>
+</body>
+</html>
