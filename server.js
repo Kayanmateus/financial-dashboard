@@ -86,6 +86,56 @@ async function initDB() {
     )
   `);
 
+  // ── Tabelas de Finanças Pessoais ──────────────────────────────
+  await q(`
+    CREATE TABLE IF NOT EXISTS fin_categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      icon TEXT DEFAULT '💰',
+      color TEXT DEFAULT '#7c3aed'
+    )
+  `);
+
+  await q(`
+    CREATE TABLE IF NOT EXISTS fin_transactions (
+      id SERIAL PRIMARY KEY,
+      type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      date TEXT NOT NULL,
+      "createdAt" TEXT DEFAULT to_char(NOW(),'YYYY-MM-DD HH24:MI:SS')
+    )
+  `);
+
+  // Inserir categorias padrão se não existirem
+  const { rows: cats } = await q(`SELECT COUNT(*) as c FROM fin_categories`);
+  if (Number(cats[0].c) === 0) {
+    const defaultCats = [
+      // Entradas
+      ['Salário',           'entrada', '💼', '#10b981'],
+      ['CNPJ / Empresa',    'entrada', '🏢', '#10b981'],
+      ['Freelance',         'entrada', '💻', '#06b6d4'],
+      ['Outras Entradas',   'entrada', '➕', '#10b981'],
+      // Saídas
+      ['Aluguel',           'saida', '🏠', '#ef4444'],
+      ['Mercado',           'saida', '🛒', '#f59e0b'],
+      ['Assinaturas/Apps',  'saida', '📱', '#8b5cf6'],
+      ['Roupas',            'saida', '👕', '#ec4899'],
+      ['Cartão de Crédito', 'saida', '💳', '#ef4444'],
+      ['Transporte',        'saida', '🚗', '#f97316'],
+      ['Saúde',             'saida', '💊', '#14b8a6'],
+      ['Alimentação/Rest.', 'saida', '🍽️', '#eab308'],
+      ['Educação',          'saida', '📚', '#3b82f6'],
+      ['Lazer',             'saida', '🎮', '#a855f7'],
+      ['Outros Gastos',     'saida', '📦', '#94a3b8'],
+    ];
+    for (const [name, type, icon, color] of defaultCats) {
+      await q(`INSERT INTO fin_categories (name, type, icon, color) VALUES ($1,$2,$3,$4)`, [name, type, icon, color]);
+    }
+  }
+
   console.log('✅ Base de dados inicializada com sucesso');
 }
 
@@ -310,6 +360,78 @@ app.get('/api/financial-report', async (req, res) => {
     });
 
     res.json(report);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// FINANÇAS PESSOAIS
+// ══════════════════════════════════════════════════════════════
+
+// Listar categorias
+app.get('/api/fin/categories', async (req, res) => {
+  try {
+    const { rows } = await q(`SELECT * FROM fin_categories ORDER BY type, name`);
+    res.json(rows);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Resumo mensal
+app.get('/api/fin/summary', async (req, res) => {
+  try {
+    const { month } = req.query; // formato: YYYY-MM
+    const filter = month ? `WHERE date LIKE '${month}%'` : '';
+
+    const { rows: transactions } = await q(`SELECT * FROM fin_transactions ${filter} ORDER BY date DESC`);
+    const { rows: allTx }        = await q(`SELECT * FROM fin_transactions ORDER BY date DESC`);
+
+    const totalEntradas = transactions.filter(t => t.type === 'entrada').reduce((s,t) => s + t.amount, 0);
+    const totalSaidas   = transactions.filter(t => t.type === 'saida').reduce((s,t) => s + t.amount, 0);
+    const saldo         = totalEntradas - totalSaidas;
+
+    // Gastos por categoria (para o gráfico)
+    const byCat = {};
+    transactions.filter(t => t.type === 'saida').forEach(t => {
+      byCat[t.category] = (byCat[t.category] || 0) + t.amount;
+    });
+
+    // Meses disponíveis
+    const months = [...new Set(allTx.map(t => t.date.slice(0,7)))].sort().reverse();
+
+    res.json({ totalEntradas, totalSaidas, saldo, byCat, transactions, months });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Adicionar transação
+app.post('/api/fin/transactions', async (req, res) => {
+  try {
+    const { type, amount, category, description, date } = req.body;
+    if (!type || !amount || !category || !date)
+      return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+    const { rows } = await q(
+      `INSERT INTO fin_transactions (type, amount, category, description, date) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+      [type, amount, category, description || '', date]
+    );
+    res.status(201).json({ id: rows[0].id, message: 'Transação registrada' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Editar transação
+app.put('/api/fin/transactions/:id', async (req, res) => {
+  try {
+    const { type, amount, category, description, date } = req.body;
+    await q(
+      `UPDATE fin_transactions SET type=$1, amount=$2, category=$3, description=$4, date=$5 WHERE id=$6`,
+      [type, amount, category, description || '', date, req.params.id]
+    );
+    res.json({ message: 'Transação atualizada' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Excluir transação
+app.delete('/api/fin/transactions/:id', async (req, res) => {
+  try {
+    await q(`DELETE FROM fin_transactions WHERE id=$1`, [req.params.id]);
+    res.json({ message: 'Transação excluída' });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

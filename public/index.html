@@ -158,6 +158,7 @@
   <div class="nav-item" data-page="projects" onclick="showPage('projects')"><span class="icon">📋</span> Projetos</div>
   <div class="nav-item" data-page="agenda" onclick="showPage('agenda')"><span class="icon">📅</span> Agenda</div>
   <div class="nav-item" data-page="financial" onclick="showPage('financial')"><span class="icon">💹</span> Financeiro</div>
+  <div class="nav-item" data-page="personal" onclick="showPage('personal')"><span class="icon">💵</span> Finanças Pessoais</div>
   <div class="sidebar-footer">
     <button class="btn-new" onclick="openNewProject()">➕ Novo Projeto</button>
   </div>
@@ -234,6 +235,42 @@
     </div>
   </div>
 
+  <!-- FINANÇAS PESSOAIS -->
+  <div id="page-personal" class="page">
+    <h1>💵 Finanças Pessoais</h1>
+    <p class="subtitle">Controle tudo que entra e sai do seu dinheiro</p>
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+      <select id="fin-month" onchange="loadPersonal()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px">
+        <option value="">Todos os meses</option>
+      </select>
+      <button class="btn-sm btn-primary" onclick="openFinModal()">➕ Nova Transação</button>
+    </div>
+    <div class="stats-grid" id="fin-summary-cards"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="card">
+        <div class="card-header">🥧 Gastos por Categoria</div>
+        <div style="padding:20px;display:flex;flex-direction:column;align-items:center">
+          <svg id="fin-pie" viewBox="0 0 220 220" width="220" height="220"></svg>
+          <div id="fin-legend" style="margin-top:14px;width:100%;display:flex;flex-direction:column;gap:5px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">📊 Entradas vs Saídas</div>
+        <div style="padding:20px" id="fin-bar-chart"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>Extrato de Transações</span>
+        <select id="fin-filter-type" onchange="renderTxTable()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;color:var(--text);font-size:12px">
+          <option value="">Tudo</option><option value="entrada">Entradas</option><option value="saida">Saídas</option>
+        </select>
+      </div>
+      <table><thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th><th>Ações</th></tr></thead>
+      <tbody id="fin-tx-table"></tbody></table>
+    </div>
+  </div>
+
   <!-- FINANCIAL -->
   <div id="page-financial" class="page">
     <h1>Financeiro</h1>
@@ -243,6 +280,35 @@
   </div>
 
 </main>
+
+<!-- ══════════════ FINANÇAS PESSOAIS (fora do main, inserido via JS) ══════════════ -->
+
+<!-- ══════════════ MODAL: NOVA TRANSAÇÃO PESSOAL ══════════════ -->
+<div class="modal-overlay" id="modal-fin">
+  <div class="modal" style="max-width:460px">
+    <h2 id="fin-modal-title">Nova Transação</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <div class="field"><label>Tipo *</label>
+          <select id="ft-type" onchange="updateFinCategories()">
+            <option value="saida">💸 Saída (Gasto)</option>
+            <option value="entrada">💰 Entrada (Recebimento)</option>
+          </select>
+        </div>
+        <div class="field"><label>Data *</label><input id="ft-date" type="date" /></div>
+      </div>
+      <div class="field"><label>Categoria *</label>
+        <select id="ft-category"></select>
+      </div>
+      <div class="field"><label>Valor (R$) *</label><input id="ft-amount" type="number" step="0.01" placeholder="0,00" /></div>
+      <div class="field"><label>Descrição</label><input id="ft-desc" placeholder="Ex: Conta de água, Salário de junho..." /></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-fin')">Cancelar</button>
+      <button class="btn-submit" onclick="saveFinTransaction()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══════════════ MODAL: NOVO/EDITAR PROJETO ══════════════ -->
 <div class="modal-overlay" id="modal-project">
@@ -383,6 +449,7 @@
     if (name === 'projects') loadProjects();
     if (name === 'agenda') loadAgenda();
     if (name === 'financial') loadFinancial();
+    if (name === 'personal') loadPersonal();
   }
 
   // ── MODALS ───────────────────────────────────────────────────
@@ -807,6 +874,244 @@
   function pct(a, b) { return b > 0 ? Math.min(100, Math.round(a / b * 100)) : 0; }
 
   // ── DELETE ROUTES (need to add in server) ────────────────────
+  // ══════════════════════════════════════════════════════════════
+  // FINANÇAS PESSOAIS
+  // ══════════════════════════════════════════════════════════════
+  let finCategories = [];
+  let finData = null;
+  let editingFinId = null;
+
+  async function loadPersonal() {
+    const month = document.getElementById('fin-month').value;
+    const url = '/api/fin/summary' + (month ? `?month=${month}` : '');
+    finData = await fetch(url).then(r => r.json());
+
+    // Popula select de meses
+    const sel = document.getElementById('fin-month');
+    const cur = sel.value;
+    const now = new Date();
+    const thisMonth = now.toISOString().slice(0,7);
+    const months = finData.months.length ? finData.months : [thisMonth];
+    sel.innerHTML = '<option value="">Todos os meses</option>' +
+      months.map(m => {
+        const [y, mo] = m.split('-');
+        const label = new Date(y, mo-1).toLocaleString('pt-BR', {month:'long', year:'numeric'});
+        return `<option value="${m}" ${m===cur?'selected':''}>${label.charAt(0).toUpperCase()+label.slice(1)}</option>`;
+      }).join('');
+
+    renderFinSummary();
+    renderPieChart();
+    renderBarChart();
+    renderTxTable();
+  }
+
+  function renderFinSummary() {
+    const { totalEntradas, totalSaidas, saldo } = finData;
+    document.getElementById('fin-summary-cards').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-label">💰 Total Entradas</div>
+        <div class="stat-value green">${fmt(totalEntradas)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">💸 Total Saídas</div>
+        <div class="stat-value red">${fmt(totalSaidas)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">${saldo >= 0 ? '✅' : '⚠️'} Saldo</div>
+        <div class="stat-value ${saldo >= 0 ? 'green' : 'red'}">${fmt(saldo)}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">📊 Categorias com Gasto</div>
+        <div class="stat-value purple">${Object.keys(finData.byCat).length}</div>
+      </div>
+    `;
+  }
+
+  function renderPieChart() {
+    const byCat = finData.byCat;
+    const entries = Object.entries(byCat).sort((a,b) => b[1]-a[1]);
+    const total = entries.reduce((s,[,v]) => s+v, 0);
+    const svg = document.getElementById('fin-pie');
+    const legend = document.getElementById('fin-legend');
+
+    if (!entries.length || total === 0) {
+      svg.innerHTML = `<text x="110" y="115" text-anchor="middle" fill="#94a3b8" font-size="13">Sem gastos</text>`;
+      legend.innerHTML = '';
+      return;
+    }
+
+    const COLORS = ['#ef4444','#f59e0b','#8b5cf6','#ec4899','#f97316','#14b8a6','#eab308','#3b82f6','#a855f7','#94a3b8','#10b981','#06b6d4','#e11d48','#65a30d','#0891b2'];
+    const cx = 110, cy = 110, r = 90, ri = 45;
+    let startAngle = -Math.PI / 2;
+    let paths = '';
+
+    entries.forEach(([cat, val], i) => {
+      const slice = (val / total) * 2 * Math.PI;
+      const endAngle = startAngle + slice;
+      const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+      const x2 = cx + r * Math.cos(endAngle),   y2 = cy + r * Math.sin(endAngle);
+      const xi1 = cx + ri * Math.cos(startAngle), yi1 = cy + ri * Math.sin(startAngle);
+      const xi2 = cx + ri * Math.cos(endAngle),   yi2 = cy + ri * Math.sin(endAngle);
+      const large = slice > Math.PI ? 1 : 0;
+      const color = COLORS[i % COLORS.length];
+      paths += `<path d="M ${xi1} ${yi1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} L ${xi2} ${yi2} A ${ri} ${ri} 0 ${large} 0 ${x1} ${y1} Z" fill="${color}" stroke="var(--bg)" stroke-width="2" opacity="0.92"/>`;
+      startAngle = endAngle;
+    });
+
+    // Centro
+    paths += `<circle cx="${cx}" cy="${cy}" r="${ri}" fill="var(--surface)"/>`;
+    paths += `<text x="${cx}" y="${cy-6}" text-anchor="middle" fill="var(--text-muted)" font-size="10">Total</text>`;
+    paths += `<text x="${cx}" y="${cy+10}" text-anchor="middle" fill="var(--text)" font-size="12" font-weight="bold">${fmt(total)}</text>`;
+    svg.innerHTML = paths;
+
+    // Legenda
+    legend.innerHTML = entries.map(([cat, val], i) => {
+      const pct = Math.round(val/total*100);
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:12px">
+        <div style="width:12px;height:12px;border-radius:3px;background:${COLORS[i%COLORS.length]};flex-shrink:0"></div>
+        <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${cat}</span>
+        <span style="color:var(--text);font-weight:600">${fmt(val)}</span>
+        <span style="color:var(--text-muted);min-width:32px;text-align:right">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+
+  function renderBarChart() {
+    const { totalEntradas, totalSaidas } = finData;
+    const max = Math.max(totalEntradas, totalSaidas, 1);
+    const pctE = Math.round(totalEntradas/max*100);
+    const pctS = Math.round(totalSaidas/max*100);
+    const saldo = totalEntradas - totalSaidas;
+
+    document.getElementById('fin-bar-chart').innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+            <span>💰 Entradas</span><b style="color:var(--green)">${fmt(totalEntradas)}</b>
+          </div>
+          <div class="bar-track" style="height:18px;border-radius:6px">
+            <div class="bar-fill" style="width:${pctE}%;height:18px;border-radius:6px;background:var(--green)"></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+            <span>💸 Saídas</span><b style="color:var(--red)">${fmt(totalSaidas)}</b>
+          </div>
+          <div class="bar-track" style="height:18px;border-radius:6px">
+            <div class="bar-fill" style="width:${pctS}%;height:18px;border-radius:6px;background:var(--red)"></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:14px;font-weight:600">Saldo do período</span>
+          <span style="font-size:20px;font-weight:700;color:${saldo>=0?'var(--green)':'var(--red)'}">${fmt(saldo)}</span>
+        </div>
+        ${totalEntradas > 0 ? `
+        <div style="background:var(--surface2);border-radius:10px;padding:12px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Comprometimento da renda</div>
+          <div class="bar-track" style="height:10px">
+            <div class="bar-fill" style="width:${Math.min(100,Math.round(totalSaidas/totalEntradas*100))}%;background:${totalSaidas>totalEntradas?'var(--red)':'var(--orange)'}"></div>
+          </div>
+          <div style="font-size:12px;margin-top:4px;color:var(--text-muted)">${Math.min(100,Math.round(totalSaidas/totalEntradas*100))}% da renda gasto</div>
+        </div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderTxTable() {
+    if (!finData) return;
+    const filter = document.getElementById('fin-filter-type').value;
+    const tbody = document.getElementById('fin-tx-table');
+    let txs = finData.transactions;
+    if (filter) txs = txs.filter(t => t.type === filter);
+
+    if (!txs.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Nenhuma transação encontrada</td></tr>`;
+      return;
+    }
+
+    const cat = finCategories.find ? finCategories : [];
+    tbody.innerHTML = txs.map(t => {
+      const catObj = finCategories.find(c => c.name === t.category);
+      const icon = catObj?.icon || (t.type === 'entrada' ? '💰' : '💸');
+      return `<tr>
+        <td>${fmtDate(t.date)}</td>
+        <td>${t.type === 'entrada'
+          ? '<span class="badge badge-green">Entrada</span>'
+          : '<span class="badge badge-red">Saída</span>'}</td>
+        <td>${icon} ${t.category}</td>
+        <td style="color:var(--text-muted)">${t.description || '-'}</td>
+        <td style="font-weight:600;color:${t.type==='entrada'?'var(--green)':'var(--red)'}">
+          ${t.type==='entrada'?'+':'-'}${fmt(t.amount)}
+        </td>
+        <td><div class="actions">
+          <button class="btn-sm btn-ghost" onclick="editFinTransaction(${t.id})">✏️</button>
+          <button class="btn-sm btn-danger" onclick="deleteFinTransaction(${t.id})">🗑️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function openFinModal(id = null) {
+    editingFinId = id;
+    if (!finCategories.length) {
+      finCategories = await fetch('/api/fin/categories').then(r => r.json());
+    }
+    document.getElementById('fin-modal-title').textContent = id ? '✏️ Editar Transação' : '➕ Nova Transação';
+    if (!id) {
+      document.getElementById('ft-type').value = 'saida';
+      document.getElementById('ft-date').value = new Date().toISOString().slice(0,10);
+      document.getElementById('ft-amount').value = '';
+      document.getElementById('ft-desc').value = '';
+    }
+    updateFinCategories();
+    if (id) {
+      const tx = finData.transactions.find(t => t.id === id);
+      if (tx) {
+        document.getElementById('ft-type').value = tx.type;
+        updateFinCategories();
+        document.getElementById('ft-category').value = tx.category;
+        document.getElementById('ft-amount').value = tx.amount;
+        document.getElementById('ft-date').value = tx.date;
+        document.getElementById('ft-desc').value = tx.description;
+      }
+    }
+    openModal('modal-fin');
+  }
+
+  function updateFinCategories() {
+    const type = document.getElementById('ft-type').value;
+    const sel = document.getElementById('ft-category');
+    const filtered = finCategories.filter(c => c.type === type);
+    sel.innerHTML = filtered.map(c => `<option value="${c.name}">${c.icon} ${c.name}</option>`).join('');
+  }
+
+  async function saveFinTransaction() {
+    const body = {
+      type:        document.getElementById('ft-type').value,
+      category:    document.getElementById('ft-category').value,
+      amount:      document.getElementById('ft-amount').value,
+      date:        document.getElementById('ft-date').value,
+      description: document.getElementById('ft-desc').value,
+    };
+    if (!body.amount || !body.date || !body.category) { alert('Preencha todos os campos obrigatórios'); return; }
+
+    if (editingFinId) {
+      await fetch(`/api/fin/transactions/${editingFinId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    } else {
+      await fetch('/api/fin/transactions', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    }
+    closeModal('modal-fin');
+    loadPersonal();
+  }
+
+  function editFinTransaction(id) { openFinModal(id); }
+
+  async function deleteFinTransaction(id) {
+    if (!confirm('Excluir esta transação?')) return;
+    await fetch(`/api/fin/transactions/${id}`, { method:'DELETE' });
+    loadPersonal();
+  }
+
   // ── INIT ─────────────────────────────────────────────────────
   loadDashboard();
 </script>
